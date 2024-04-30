@@ -67,16 +67,16 @@ LAST_CAREUNIT = {'Medical Intensive Care Unit (MICU)': 0,
 
 
 class MIMIC_CXR_EHR(Dataset):
-    def __init__(self, cfg, metadata_with_labels, ehr_ds, cxr_ds, split='train'):
+    def __init__(self, cfg, metadata_with_labels, ehr_ds, cxr_ds = None, split='train'):
         
         self.CLASSES = CLASSES
         if 'radiology' in cfg.dataset.labels_set:
             self.CLASSES = R_CLASSES
         
         self.metadata_with_labels = metadata_with_labels
-        self.cxr_files_paired = self.metadata_with_labels.dicom_id.values
+        #self.cxr_files_paired = self.metadata_with_labels.dicom_id.values
         self.ehr_files_paired = (self.metadata_with_labels['stay'].values)
-        self.cxr_files_all = cxr_ds.filenames_loaded
+        #self.cxr_files_all = cxr_ds.filenames_loaded
         self.ehr_files_all = ehr_ds.names
         self.ehr_files_unpaired = list(set(self.ehr_files_all) - set(self.ehr_files_paired))
         self.ehr_ds = ehr_ds
@@ -97,14 +97,17 @@ class MIMIC_CXR_EHR(Dataset):
         ethnicity = None
         if self.cfg.dataset.data_pairs == 'paired_ehr_cxr':
             ehr_data, labels_ehr = self.ehr_ds[self.ehr_files_paired[index]]
-            cxr_data, labels_cxr = self.cxr_ds[self.cxr_files_paired[index]]
+            cxr_data, labels_cxr = None,None#self.cxr_ds[self.cxr_files_paired[index]]
             meta_info['id_ehr'] = self.ehr_files_paired[index]
-            meta_info['id_cxr'] = self.cxr_files_paired[index]
-            
-            age = self.metadata_with_labels.iloc[index]['age'] / 91.0 # Age is capped to 91 in MIMIC
+            #meta_info['id_cxr'] = self.cxr_files_paired[index]
+            if 'age' in self.metadata_with_labels.columns:
+                age =  self.metadata_with_labels.iloc[index]['age'] / 91.0
+            #age =  self.metadata_with_labels.iloc[index]['age'] / 91.0 # Age is capped to 91 in MIMIC
             # Gotta One Hot Encode this.
-            gender = [1 if key == self.metadata_with_labels.iloc[index]['gender'] else 0 for key in GENDER.keys()]
-            ethnicity = [1 if key == self.metadata_with_labels.iloc[index]['ethnicity'] else 0 for key in ETHNICITY.keys()]
+            if 'gender' in self.metadata_with_labels.columns:
+                gender = [1 if key == self.metadata_with_labels.iloc[index]['gender'] else 0 for key in GENDER.keys()]
+            if 'ethnicity' in self.metadata_with_labels.columns:
+                ethnicity = [1 if key == self.metadata_with_labels.iloc[index]['ethnicity'] else 0 for key in ETHNICITY.keys()]
             return ehr_data, cxr_data, labels_ehr, labels_cxr, meta_info, age, gender, ethnicity
         elif self.cfg.dataset.data_pairs == 'paired_ehr':
             ehr_data, labels_ehr = self.ehr_ds[self.ehr_files_paired[index]]
@@ -112,7 +115,7 @@ class MIMIC_CXR_EHR(Dataset):
             return ehr_data, cxr_data, labels_ehr, labels_cxr, meta_info, age, gender, ethnicity
         elif self.cfg.dataset.data_pairs == 'radiology':
             ehr_data, labels_ehr = np.zeros((1, 10)), np.zeros(self.args.num_classes)
-            cxr_data, labels_cxr = self.cxr_ds[self.cxr_files_all[index]]
+            cxr_data, labels_cxr = None,None#self.cxr_ds[self.cxr_files_all[index]]
             return ehr_data, cxr_data, labels_ehr, labels_cxr, meta_info, age, gender, ethnicity
         elif self.cfg.dataset.data_pairs == 'partial_ehr':
             ehr_data, labels_ehr = self.ehr_ds[self.ehr_files_all[index]]
@@ -122,7 +125,7 @@ class MIMIC_CXR_EHR(Dataset):
         elif self.cfg.dataset.data_pairs == 'partial_ehr_cxr':
             if index < len(self.ehr_files_paired):
                 ehr_data, labels_ehr = self.ehr_ds[self.ehr_files_paired[index]]
-                cxr_data, labels_cxr = self.cxr_ds[self.cxr_files_paired[index]]
+                cxr_data, labels_cxr = None,None#self.cxr_ds[self.cxr_files_paired[index]]
             else:
                 index = random.randint(0, len(self.ehr_files_unpaired)-1) 
                 ehr_data, labels_ehr = self.ehr_ds[self.ehr_files_unpaired[index]]
@@ -182,22 +185,29 @@ def loadmetadata(cfg):
 # def 
 def load_cxr_ehr(cfg):
     ehr_train_ds, ehr_val_ds, ehr_test_ds = get_datasets(cfg)
-    cxr_train_ds, cxr_val_ds, cxr_test_ds = get_cxr_datasets(cfg)
+    # cxr_train_ds, cxr_val_ds, cxr_test_ds = get_cxr_datasets(cfg)
 
-    cxr_merged_icustays = loadmetadata(cfg) 
+    #cxr_merged_icustays = loadmetadata(cfg) 
 
     splits_labels_train = pd.read_csv(f'{cfg.dataset.ehr_data_dir}/{cfg.dataset.task}/train_listfile.csv')
     splits_labels_val = pd.read_csv(f'{cfg.dataset.ehr_data_dir}/{cfg.dataset.task}/val_listfile.csv')
     splits_labels_test = pd.read_csv(f'{cfg.dataset.ehr_data_dir}/{cfg.dataset.task}/test_listfile.csv')
 
 
-    train_meta_with_labels = cxr_merged_icustays.merge(splits_labels_train, how='inner', on='stay_id')
-    val_meta_with_labels = cxr_merged_icustays.merge(splits_labels_val, how='inner', on='stay_id')
-    test_meta_with_labels = cxr_merged_icustays.merge(splits_labels_test, how='inner', on='stay_id')
-    
-    train_ds = MIMIC_CXR_EHR(cfg, train_meta_with_labels, ehr_train_ds, cxr_train_ds)
-    val_ds = MIMIC_CXR_EHR(cfg, val_meta_with_labels, ehr_val_ds, cxr_val_ds, split='val')
-    test_ds = MIMIC_CXR_EHR(cfg, test_meta_with_labels, ehr_test_ds, cxr_test_ds, split='test')
+    #train_meta_with_labels = cxr_merged_icustays.merge(splits_labels_train, how='inner', on='stay_id')
+    train_meta_with_labels = splits_labels_train
+    #val_meta_with_labels = cxr_merged_icustays.merge(splits_labels_val, how='inner', on='stay_id')
+    val_meta_with_labels = splits_labels_val
+    #test_meta_with_labels = cxr_merged_icustays.merge(splits_labels_test, how='inner', on='stay_id')
+    test_meta_with_labels = splits_labels_test
+
+    #train_ds = MIMIC_CXR_EHR(cfg, train_meta_with_labels, ehr_train_ds, cxr_train_ds)
+    train_ds = MIMIC_CXR_EHR(cfg, train_meta_with_labels, ehr_train_ds)
+    #val_ds = MIMIC_CXR_EHR(cfg, val_meta_with_labels, ehr_val_ds, cxr_val_ds, split='val')
+    val_ds = MIMIC_CXR_EHR(cfg, val_meta_with_labels, ehr_val_ds, split='val')
+    #test_ds = MIMIC_CXR_EHR(cfg, test_meta_with_labels, ehr_test_ds, cxr_test_ds, split='test')
+    test_ds = MIMIC_CXR_EHR(cfg, test_meta_with_labels, ehr_test_ds, split='test')
+
 
     return train_ds, val_ds, test_ds
 
@@ -210,9 +220,9 @@ def my_collate(batch):
     targets_ehr = torch.Tensor(np.array([item[2] for item in batch])).unsqueeze(1)
     targets_cxr = torch.stack([torch.zeros(14) if item[3] is None else item[3] for item in batch])
     meta_info = [item[4] for item in batch]
-    age = torch.Tensor(np.array([item[5] for item in batch])).unsqueeze(1)
-    gender = torch.Tensor(np.array([item[6] for item in batch]))
-    ethnicity = torch.Tensor(np.array([item[7] for item in batch]))
+    age = torch.Tensor(np.array([0 for item in batch])).unsqueeze(1)
+    gender = torch.Tensor(np.array([0 for item in batch]))
+    ethnicity = torch.Tensor(np.array([0 for item in batch]))
     return {'ehr': x, 'img': img, 'targets_ehr': targets_ehr, 'targets_cxr': targets_cxr, 'seq_length': seq_length, 'pairs': pairs, 'meta_info': meta_info, 'age': age, 'gender': gender, 'ethnicity': ethnicity}
 
 def pad_zeros(arr, min_length=None):
@@ -313,10 +323,11 @@ def get_cxr_datasets(cfg):
 
     return dataset_train, dataset_validate, dataset_test
 
+pat = os.path.dirname(os.path.abspath(__file__))
 
 
 def read_timeseries():
-    path = f'/data/home/firas/Desktop/work/other_groups/MedFuse/mimic4extract/data/in-hospital-mortality/train/16662316_episode8_timeseries.csv'
+    path = f'D:TFG-INFO/data/in-hospital-mortality/train/16662316_episode8_timeseries.csv'
     ret = []
     with open(path, "r") as tsfile:
         header = tsfile.readline().strip().split(',')
@@ -331,12 +342,12 @@ class EHRdataset(Dataset):
     def __init__(self, listfile, dataset_dir, return_names=True, period_length=48.0):
         self.return_names = return_names
         self.discretizer = Discretizer(timestep = 1.0, store_masks=True, impute_strategy='previous', start_time='zero',
-            config_path='/data/home/firas/Desktop/work/combine_image_and_text/classification/datasets/med_lab_utils/discretizer_config.json')
+            config_path= pat + '\med_lab_utils\discretizer_config.json')
 
         discretizer_header = self.discretizer.transform(read_timeseries())[1].split(',')
         cont_channels = [i for (i, x) in enumerate(discretizer_header) if x.find("->") == -1]
         self.normalizer = Normalizer(fields=cont_channels)
-        self.normalizer.load_params('/data/home/firas/Desktop/work/combine_image_and_text/classification/datasets/med_lab_utils/ph_ts1.0.input_str:previous.start_time:zero.normalizer')
+        self.normalizer.load_params(pat+'\med_lab_utils\ph_ts1.0.input_str_previous.start_time_zero.normalizer')
 
         self._period_length = period_length
         self._dataset_dir = dataset_dir

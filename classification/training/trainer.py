@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
+import sys
+import os
+sys.path.insert(0, os.getcwd())
 from classification.training.lightning import LightningClassifier
 from classification.training.model import get_model
 import os
@@ -84,14 +87,18 @@ def run(cfg: DictConfig):
         if cfg.early_stopping.use:
             callbacks.append(training_settings['early_stopping_callback'])
 
-        num_samples = None if cfg.meta.num_samples == 'None' else cfg.meta.num_samples
-        trainer = pl.Trainer(gpus=cfg.meta.gpus, max_epochs=cfg.epochs, precision=cfg.meta.precision,
+        num_samples = None if cfg.meta.batch_size == 'None' else cfg.meta.batch_size
+        print(f"Num epochs: {cfg.epochs}")
+        trainer = pl.Trainer(
+                            #accelerator='cpu',
+                             #gpus = 0,#gpus=cfg.meta.gpus,
+                             max_epochs=cfg.epochs, precision=cfg.meta.precision,
                              callbacks=callbacks,
                              resume_from_checkpoint=resume_from_checkpoint,
                              deterministic=cfg.meta.deterministic, logger=wandb_logger,
                              limit_train_batches=num_samples,
                              limit_val_batches=num_samples,
-                             limit_test_batches=num_samples,
+                             limit_test_batches=num_samples,log_every_n_steps=10
                              )
         if cfg.meta.only_test == False:
             trainer.fit(trainable_classifier, train_dataloaders=train_dataloader,

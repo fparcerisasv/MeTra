@@ -1,7 +1,7 @@
 meta:
-  prefix_name: ???
-  output_dir: /data/home/firas/Desktop/work/combine_image_and_text/classification/checkpoints
-  evaluation_dir: /data/home/firas/Desktop/work/combine_image_and_text/evaluation_outputs
+  prefix_name: project
+  output_dir: D:\TFG-INFO\classification\checkpoints
+  evaluation_dir: D:\TFG-INFO\evaluation_outputs
   checkpoint_path: False
   transforms: True
   precision: 32
@@ -31,7 +31,7 @@ early_stopping:
   patience: 40
 logger:
   wandb:
-    project: combine_image_and_text
-    entity: infinite_imaging
+    project: timeseries-ehr-mortality-classifier
+    entity: universitat-de-barcelona
 epochs: 150
 num_samples: None

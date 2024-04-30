@@ -54,9 +54,10 @@ def assemble_episodic_data(stays, diagnoses):
     data.update(transform_ethnicity(stays.ethnicity))
     data['Height'] = np.nan
     data['Weight'] = np.nan
-    data = DataFrame(data).set_index('Icustay')
+    data = pd.concat([DataFrame(data), extract_diagnosis_labels(diagnoses)], axis=1) # Use pd.concat instead of insert
+    data = data.set_index('Icustay')
     data = data[['Ethnicity', 'Gender', 'Age', 'Height', 'Weight', 'Length of Stay', 'Mortality']]
-    return data.merge(extract_diagnosis_labels(diagnoses), left_index=True, right_index=True)
+    return data
 
 
 # diagnosis_labels = ['4019', '4280', '41401', '42731', '25000', '5849', '2724', '51881', '53081', '5990', '2720',
@@ -237,7 +238,7 @@ def clean_fio2(df):
     ''' The two following lines implement the code that was used to create the benchmark dataset that the paper used.
     This works with both python 2 and python 3.
     '''
-    is_str = np.array(map(lambda x: type(x) == str, list(df.value)), dtype=np.bool)
+    is_str = np.array(map(lambda x: type(x) == str, list(df.value)), dtype=np.bool_)
     idx = df.valuenum.fillna('').apply(lambda s: 'torr' not in s.lower()) & (is_str | (~is_str & (v > 1.0)))
 
     v.loc[idx] = v[idx] / 100.

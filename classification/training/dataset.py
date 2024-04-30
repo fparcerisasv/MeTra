@@ -1,4 +1,9 @@
-from classification.datasets import MIMICDataset, UKADataset, load_cxr_ehr, my_collate
+import os
+import sys
+sys.path.insert(0, os.getcwd())
+
+#from classification.datasets import MIMICDataset, UKADataset, load_cxr_ehr, my_collate
+from classification.datasets.mimic_lab import load_cxr_ehr, my_collate
 
 
 def get_dataset(cfg):
